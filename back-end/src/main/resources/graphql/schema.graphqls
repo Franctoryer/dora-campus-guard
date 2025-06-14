@@ -1,0 +1,18 @@
+type Query {
+    getUserDetailById(id: ID!): UserDetail
+    getMarkById(id: ID!): [Mark]
+}
+
+type UserDetail {
+    uid: ID!
+    nickname: String
+    age: Int
+    createdAt: Int
+    marks: [Mark]
+}
+
+
+type Mark {
+    semester: Int
+    gpa: Float
+}
