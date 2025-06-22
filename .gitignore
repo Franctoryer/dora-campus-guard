@@ -1,2 +1,11 @@
 .idea
+.vscode
+
+.venv
+
 mysql-data
+
+datasets
+model_output
+__pycache__
+saved_model

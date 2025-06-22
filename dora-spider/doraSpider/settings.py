@@ -6,6 +6,7 @@
 #     https://docs.scrapy.org/en/latest/topics/settings.html
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
+from scrapy.settings.default_settings import DOWNLOAD_DELAY
 
 BOT_NAME = "doraSpider"
 
@@ -22,12 +23,13 @@ ADDONS = {}
 ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-#CONCURRENT_REQUESTS = 32
+CONCURRENT_REQUESTS = 32
+
+DOWNLOAD_DELAY = 0.4
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-#DOWNLOAD_DELAY = 3
 # The download delay setting will honor only one of:
 #CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
@@ -55,6 +57,11 @@ ROBOTSTXT_OBEY = False
 #DOWNLOADER_MIDDLEWARES = {
 #    "doraSpider.middlewares.DoraspiderDownloaderMiddleware": 543,
 #}
+DOWNLOADER_MIDDLEWARES = {
+    'doraSpider.middlewares.RandomProxyMiddleware': 350,
+    'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 400,
+}
+
 
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
@@ -66,7 +73,7 @@ ROBOTSTXT_OBEY = False
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
    "doraSpider.pipelines.LoggerPipeline": 200,
-   "doraSpider.pipelines.PostPipline": 500,
+   "doraSpider.pipelines.MySQLPipeline": 500,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -92,12 +99,33 @@ ITEM_PIPELINES = {
 
 # Set settings whose default value is deprecated to a future-proof value
 FEED_EXPORT_ENCODING = "utf-8"
-LOG_LEVEL = 'WARNING'
+LOG_LEVEL = 'INFO'
 
 # 数据库配置
-MYSQL_HOST = 'localhost'
-MYSQL_PORT = 3306
-MYSQL_USER = 'root'
-MYSQL_PASSWORD = 'admin123'
-MYSQL_DATABASE = 'dora'
-MYSQL_CHARSET = 'utf8mb4'
+MYSQL_DB_URL = 'mysql+pymysql://root:admin123@localhost:3306/dora?charset=utf8mb4'
+
+# 重试配置
+RETRY_ENABLED = True
+RETRY_TIMES = 5
+RETRY_HTTP_CODES = [500, 502, 503, 504, 522, 524, 408, 429]
+RETRY_BACKOFF_BASE = 2
+RETRY_BACKOFF_MAX = 30
+
+# 代理
+PROXY_USERNAME = "d2737415411"
+PROXY_PASSWORD = "rrrz4u45"
+
+PROXY_LIST = [
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@61.184.8.27:40476",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@36.151.192.236:40192",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@61.184.8.27:40297",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@182.106.136.217:40964",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@218.95.37.135:40638",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@36.151.192.236:40777",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@219.150.218.21:25950",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@58.19.55.8:25624",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@58.19.54.154:14551",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@58.19.55.9:34207",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@61.184.8.27:41499",
+    f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@182.106.136.217:40879",
+]
