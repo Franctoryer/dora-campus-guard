@@ -1,0 +1,15 @@
+[project]
+name = "sentimate-analysis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "accelerate==0.28.0",
+    "datasets>=3.6.0",
+    "fastapi>=0.115.13",
+    "scikit-learn>=1.7.0",
+    "torch>=2.7.1",
+    "transformers==4.38.2",
+    "uvicorn>=0.34.3",
+]

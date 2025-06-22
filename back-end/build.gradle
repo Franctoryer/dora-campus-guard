@@ -22,6 +22,12 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	// mybatis-plus
+	implementation "com.baomidou:mybatis-plus-boot-starter:3.5.5"
+
+	// mysql
+	implementation 'com.mysql:mysql-connector-j:8.3.0'
+
 	compileOnly 'org.projectlombok:lombok:1.18.24'
 	annotationProcessor 'org.projectlombok:lombok:1.18.24'
 	testCompileOnly 'org.projectlombok:lombok:1.18.24'

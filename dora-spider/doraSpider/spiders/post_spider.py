@@ -1,18 +1,24 @@
+import hashlib
 import json
-from typing import Iterable, Any, Optional, List
+from datetime import datetime, timedelta, timezone
+from typing import Iterable, Any, Optional, List, AsyncIterator
 
 import scrapy
 from jsonpath import jsonpath
+from loguru import logger
 from scrapy import Request
 from scrapy.http import Response
 from urllib.parse import urlencode
 from fake_useragent import UserAgent
-from loguru import logger
-from typing import Dict, Any
+from typing import Dict, Any, List
 
-from doraSpider.configs.spider_config import post_spider_config, user_spider_config
+from scrapy.spidermiddlewares.httperror import HttpError
+from twisted.internet.error import DNSLookupError, TCPTimedOutError
+
+from doraSpider.configs.spider_config import post_list_config, user_info_config, post_detail_config
 from doraSpider.items import PostItem, UserItem
 from doraSpider.utils.cipher import AESCipher
+from doraSpider.utils.spider_loader import PostItemLoader, UserItemLoader
 
 
 class PostSpider(scrapy.Spider):
@@ -30,92 +36,127 @@ class PostSpider(scrapy.Spider):
         'Referer': 'https://servicewechat.com/wx9ddd73d26fdbacba/374/page-frame.html',
         'Accept-Language': 'zh-CN,zh;q=0.9',
     }
-    # 爬取页数
-    page_num = 1000000000
 
-    def start_requests(self) -> Iterable[Any]:
+
+    def __init__(self, data_size: int = 1000, first_index: int = -1, *args, **kwargs):
+        """
+        初始化函数
+        :param data_size: 单次抓取的数据量
+        :param first_index: 初始的帖子 id，-1 表示最新的帖子 id
+        :param args:
+        :param kwargs:
+        """
+        super().__init__(*args, **kwargs)
+        self.first_index = int(first_index)
+        self.data_size = int(data_size)
+
+    async def start(self) -> AsyncIterator[Any]:
         """
         列表页请求
         :return:
         """
-        POST_LIST_URL: str = "https://cdn.dolacc.com/index.php/api/Wxpostv2/getPostsCdnpw"
-        POST_LIST_START_PARAMS = {
-            "toId": "0",
-            "scId": "16",
-            "pageSize": "10",
-            "lastindex": "-1",
-            "keyword": "",
-            "freshKey": "0"
-        }
-        # 拼接 url
-        query_string = urlencode(POST_LIST_START_PARAMS)
-        full_url = f"{POST_LIST_URL}?{query_string}"
-
-        yield Request(
-            url=full_url,
-            headers={
-                **self.default_headers,
-                'User-Agent': self.ua.random
-            },
-            callback=self.parse_list,
-            cb_kwargs={
-                "acc": 1
+        if self.first_index == -1:
+            post_list_url: str = "https://cdn.dolacc.com/index.php/api/Wxpostv2/getPostsCdnpw"
+            post_list_start_params = {
+                "toId": "0",
+                "scId": "16",
+                "pageSize": "10",
+                "lastindex": f"{self.first_index}",
+                "keyword": "",
+                "freshKey": "0"
             }
-        )
+            # 拼接 url
+            query_string = urlencode(post_list_start_params)
+            full_url = f"{post_list_url}?{query_string}"
 
-    def parse_list(self, response: Response, **kwargs: Dict[str, Any]):
+            yield Request(
+                url=full_url,
+                headers={
+                    **self.default_headers,
+                    'User-Agent': self.ua.random
+                },
+                callback=self.parse_last_index,
+            )
+        else:
+            logger.info(f"first_index: {self.first_index}")
+            # 如果不是 -1，直接循环
+            for post_id in range(self.first_index, self.first_index - self.data_size, -1):
+                url = f"https://cdn.dolacc.com/index.php/api/wxPostv2/visitPostCdnPw?pId={post_id}&nocache=-1"
+
+                # 发请求
+                yield Request(
+                    url=url,
+                    headers={
+                        **self.default_headers,
+                        'User-Agent': self.ua.random
+                    },
+                    dont_filter=True,
+                    callback=self.parse_post_detail
+                )
+
+    def parse_last_index(self, response: Response, **kwargs: Dict[str, Any]):
         """
-        解析列表页
+        提取出最新的帖子 ID
         :param response:
         :param kwargs:
         :return:
         """
-        # 获取已有的请求累计数
-        acc = kwargs.get("acc", -1)
-        # 若超出页数直接返回
-        if acc > self.page_num:
-            return
+        # 获取 last_id
+        last_id: int = self.get_last_id(response)
+        logger.info(f"last_index: {last_id}")
 
+        for post_id in range(last_id, last_id - self.data_size, -1):
+            url = f"https://cdn.dolacc.com/index.php/api/wxPostv2/visitPostCdnPw?pId={post_id}&nocache=-1"
+            # 发请求
+
+            yield Request(
+                url=url,
+                headers={
+                    **self.default_headers,
+                    'User-Agent': self.ua.random
+                },
+                callback=self.parse_post_detail,
+                errback=self.handle_error,
+                meta={
+                    "post_id": post_id
+                },
+                dont_filter=True
+            )
+
+
+    def get_last_id(self, response: Response) -> int:
+        """
+        获取帖子列表的第一个 id
+        :param response:
+        :return:
+        """
+        response_json = json.loads(response.text)
+        # 获取帖子 ID 的 jsonpath
+        post_id_path = post_list_config["fields"][0]["path"]
+        post_id_value: List[int] = jsonpath(response_json, post_id_path)
+
+        if not post_id_path:
+            raise ValueError(f"获取 last_id 失败，列表页数据异常！")
+        # 获取最大的帖子 ID
+        post_id_value = [int(val) for val in post_id_value] # 转成 int, 防止反序列化成字符串
+        last_id = max(post_id_value)
+
+        return int(last_id)
+
+    def parse_post_detail(self, response: Response):
+        """
+        解析详情页
+        :param response:
+        :return:
+        """
+        post_id = response.meta.get('post_id', 'unknown')
+        logger.info(f"Received response for post ID: {post_id}, status: {response.status}")
         # 帖子数据
-        post_items = self.create_post_items(response)
-        post_items = [PostItem(**item, item_type="post") for item in post_items]
-
+        yield PostItem(self.create_post_items(response))
         # 用户数据
-        user_items = self.create_user_items(response)
-        user_items = [UserItem(**item, item_type="user") for item in user_items]
+        yield UserItem(self.create_user_items(response))
 
-        yield from post_items
-        yield from user_items
-
-        # 获取最后一个帖子的 ID，继续发请求
-        last_index = post_items[-1]["id"]
-        POST_LIST_URL: str = "https://cdn.dolacc.com/index.php/api/Wxpostv2/getPostsCdnpw"
-        POST_LIST_START_PARAMS = {
-            "toId": "0",
-            "scId": "16",
-            "pageSize": "10",
-            "lastindex": f"{last_index}",
-            "keyword": "",
-            "freshKey": "0"
-        }
-        # 拼接 url
-        query_string = urlencode(POST_LIST_START_PARAMS)
-        full_url = f"{POST_LIST_URL}?{query_string}"
-
-        yield Request(
-            url=full_url,
-            headers={
-                **self.default_headers,
-                'User-Agent': self.ua.random
-            },
-            callback=self.parse_list,
-            cb_kwargs={
-                "acc": acc + 1
-            }
-        )
-
-
-    def create_post_items(self, response: Response) -> List[Dict[str, Any]]:
+    def create_post_items(self, response: Response) -> Dict[str, Any]:
         """
         构建帖子 item
         :param response:
@@ -125,25 +166,25 @@ class PostSpider(scrapy.Spider):
         posts_json = json.loads(response.text)
 
         # 帖子数据
-        post_items = {}
+        loader = PostItemLoader(item=PostItem())
 
         # 获取字段配置
-        fields = post_spider_config["fields"]
+        fields = post_detail_config["fields"]
         for field in fields:
-            field_name = field["name"]
-            field_path = field["path"]
-            field_value = jsonpath(posts_json, field_path)
-            post_items[field_name] = field_value
+            try:
+                field_name = field["name"]
+                field_path = field["path"]
+                field_value = jsonpath(posts_json, field_path)[0]
+                loader.add_value(field_name, field_value)
+            except Exception as e:
+                self.logger.warning(f"字段 {field_name} 解析失败: {e}")
+        # 帖子后处理
+        post_item = loader.load_item()
+        self.out_process_post_item(post_item)
 
-        post_items = self.merge_item(post_items)
+        return post_item
 
-        # 帖子正文需要解密
-        for post_item in post_items:
-            post_item["content"] = self.decrypt_post_content(post_item["content"])
-
-        return post_items
-
-    def create_user_items(self, response: Response) -> List[Dict[str, Any]]:
+    def create_user_items(self, response: Response) -> Dict[str, Any]:
         """
         构建用户 item
         :param response:
@@ -153,20 +194,44 @@ class PostSpider(scrapy.Spider):
         posts_json = json.loads(response.text)
 
         # 用户数据
-        user_items = {}
+        loader = UserItemLoader(item=UserItem())
 
         # 获取字段配置
-        fields = user_spider_config["fields"]
+        fields = user_info_config["fields"]
         for field in fields:
             field_name = field["name"]
             field_path = field["path"]
-            field_value = jsonpath(posts_json, field_path)
-            user_items[field_name] = field_value
+            field_value = jsonpath(posts_json, field_path)[0]
+            loader.add_value(field_name, field_value)
 
-        user_items = self.merge_item(user_items)
+        user_item = loader.load_item()
+        self.out_process_user_item(user_item)
 
-        return user_items
+        return user_item
 
+    def handle_error(self, failure):
+        self.logger.error(repr(failure))  # 输出错误信息
+
+        # 分类型处理
+        if failure.check(HttpError):
+            response = failure.value.response
+            self.logger.error(f"HTTP 错误 {response.status} on {response.url}")
+
+        elif failure.check(DNSLookupError):
+            request = failure.request
+            self.logger.error(f"DNS 查询失败: {request.url}")
+
+        elif failure.check(TimeoutError, TCPTimedOutError):
+            request = failure.request
+            self.logger.error(f"请求超时: {request.url}")
+
+        elif failure.check(ConnectionRefusedError):
+            request = failure.request
+            self.logger.error(f"连接被拒绝: {request.url}")
+
+        else:
+            request = failure.request
+            self.logger.error(f"未知错误: {request.url}")
 
     @staticmethod
     def merge_item(item_map: Dict[str, List[Any]]) -> List[Dict[str, Any]]:
@@ -193,8 +258,6 @@ class PostSpider(scrapy.Spider):
 
         return merged
 
-
-
     @staticmethod
     def decrypt_post_content(ciphertext_base64: str) -> str:
         """
@@ -208,4 +271,73 @@ class PostSpider(scrapy.Spider):
             cipher_text=ciphertext_base64
         )
 
+    def out_process_post_item(self, post_item: Dict[str, Any]):
+        """
+        帖子 item 后处理
+        :param post_item:
+        :return:
+        """
+        # 帖子正文解密
+        post_item["content"] = self.decrypt_post_content(post_item["content"])
 
+        # 将 url 列表转化成字符串
+        if isinstance(post_item["picture_urls"], list):
+            post_item["picture_urls"] = ",".join(post_item["picture_urls"])
+
+        # 抓取时间
+        tz = timezone(timedelta(hours=8))
+        post_item["crawled_at"] = datetime.now(tz=tz).strftime('%Y-%m-%d %H:%M:%S')
+
+        # 计算数据指纹
+        fingerprint_fields = {
+            "id": post_item["id"],
+            "content": post_item["content"],
+            "comment_sum": post_item["comment_sum"],
+            "like_sum": post_item["like_sum"],
+            "hot": post_item["hot"],
+            "tip_sum": post_item["tip_sum"],
+            "forward_sum": post_item["forward_sum"],
+            "dun_num": post_item["dun_num"],
+        }
+        fingerprint = self.get_fingerprint(json.dumps(fingerprint_fields, ensure_ascii=False, sort_keys=True))
+        post_item["fingerprint"] = fingerprint
+
+        # item 类型
+        post_item["item_type"] = "post"
+
+    def out_process_user_item(self, user_item: Dict[str, Any]):
+        """
+        用户数据后处理
+        :param user_item:
+        :return:
+        """
+        # 抓取时间
+        tz = timezone(timedelta(hours=8))
+        user_item["crawled_at"] = datetime.now(tz=tz).strftime('%Y-%m-%d %H:%M:%S')
+
+        # 数据指纹
+        fingerprint_fields = {
+            "uid": user_item["uid"],
+            "avatar_url": user_item["uid"],
+            "gender": user_item["gender"],
+            "level": user_item["level"],
+            "nickname": user_item["nickname"],
+            "dora_coin": user_item["dora_coin"],
+            "hide_permission": user_item["hide_permission"],
+        }
+        fingerprint = self.get_fingerprint(json.dumps(fingerprint_fields, ensure_ascii=False, sort_keys=True))
+        user_item["fingerprint"] = fingerprint
+
+        # item 类型
+        user_item["item_type"] = "user"
+
+    @staticmethod
+    def get_fingerprint(data: str) -> str:
+        """
+        用 sha256 哈希计算数据指纹
+        :param data:
+        :return:
+        """
+        sha256 = hashlib.sha256()
+        sha256.update(data.encode('utf-8'))  # 将字符串编码为 bytes
+        return sha256.hexdigest()

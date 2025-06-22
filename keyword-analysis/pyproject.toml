@@ -1,0 +1,13 @@
+[project]
+name = "keyword-analysis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "jieba>=0.42.1",
+    "pandas>=2.3.0",
+    "pymysql>=1.1.1",
+    "scikit-learn>=1.6.1",
+    "sqlalchemy>=2.0.41",
+]
