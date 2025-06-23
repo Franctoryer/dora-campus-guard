@@ -58,8 +58,8 @@ DOWNLOAD_DELAY = 0.4
 #    "doraSpider.middlewares.DoraspiderDownloaderMiddleware": 543,
 #}
 DOWNLOADER_MIDDLEWARES = {
-    'doraSpider.middlewares.RandomProxyMiddleware': 350,
-    'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 400,
+    # 'doraSpider.middlewares.RandomProxyMiddleware': 350,
+    # 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 400,
 }
 
 
@@ -72,8 +72,9 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-   "doraSpider.pipelines.LoggerPipeline": 200,
-   "doraSpider.pipelines.MySQLPipeline": 500,
+    "doraSpider.pipelines.LoggerPipeline": 200,
+    # "doraSpider.pipelines.MySQLPipeline": 500,
+    "doraSpider.pipelines.RabbitMQPipeline": 300
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -129,3 +130,14 @@ PROXY_LIST = [
     f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@61.184.8.27:41499",
     f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@182.106.136.217:40879",
 ]
+
+# RabbitMQ 配置
+RABBITMQ_URL = "amqp://guest:guest@localhost:5672/"
+
+# 情感分析服务配置
+SENTIMENT_HOST = "http://127.0.0.1:8000"
+SENTIMENT_URL = "/predict-emotion"
+
+# ES 配置
+ES_URL = "http://localhost:9200"
+ES_POST_INDEX = "posts"

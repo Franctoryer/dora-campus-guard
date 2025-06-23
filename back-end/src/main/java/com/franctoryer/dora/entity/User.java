@@ -1,5 +1,6 @@
 package com.franctoryer.dora.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -7,40 +8,86 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
-
-@TableName("users")
+/**
+ * 用户数据表
+ */
+@TableName(value = "users", schema = "public")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 public class User {
 
-    @TableId
-    private Long uid; // 用户 ID
+    /**
+     * 用户 ID
+     */
+    @TableId(type = IdType.AUTO)
+    private Long uid;
 
-    private String avatarUrl; // 用户头像 URL
+    /**
+     * 头像 URL
+     */
+    private String avatarUrl;
 
-    private Integer gender; // 性别：0-男，1-女，2-未知
+    /**
+     * 性别（0 女，1 男，2 保密）
+     */
+    private Integer gender;
 
-    private Integer level; // 等级
+    /**
+     * 等级
+     */
+    private Integer level;
 
-    private String nickname; // 昵称
+    /**
+     * 昵称
+     */
+    private String nickname;
 
-    private Boolean isAdmin; // 是否是管理员
+    /**
+     * 是否管理员
+     */
+    private Boolean isAdmin;
 
-    private Double doraValue; // 哆啦值
+    /**
+     * 学校 ID
+     */
+    private Long schoolId;
 
-    private Double doraCoin; // 哆啦币
+    /**
+     * 哆啦币
+     */
+    private Float doraCoin;
 
-    private String likes; // 被哪些人关注（建议用 JSON 字符串或逗号分隔）
+    /**
+     * 是否隐藏主页
+     */
+    private Boolean hidePermission;
 
-    private Boolean hidePermission; // 是否隐藏主页
+    /**
+     * 是否匿名
+     */
+    private Boolean isAnonymous;
 
-    private Boolean isAnonymous; // 是否匿名
+    /**
+     * 是否被举报
+     */
+    private Boolean eatTip;
 
-    private Date createdAt; // 创建时间
+    /**
+     * 抓取时间
+     */
+    private LocalDateTime crawledAt;
 
-    private Date updatedAt; // 更新时间
+    /**
+     * 用户指纹（SHA-256）
+     */
+    private String fingerprint;
+
+    /**
+     * item 类型（post/user）
+     */
+    private String itemType;
 }

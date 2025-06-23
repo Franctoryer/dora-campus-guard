@@ -4,6 +4,8 @@
 .venv
 
 mysql-data
+es_data
+rabbitmq-data
 
 datasets
 model_output

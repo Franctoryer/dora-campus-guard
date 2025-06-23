@@ -9,10 +9,15 @@ spring:
     path: /graphql
 
   datasource:
-    url: jdbc:mysql://localhost:3306/your_database?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
+    url: jdbc:mysql://localhost:3306/dora?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8
     username: root
     password: admin123
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  data:
+    elasticsearch:
+      repositories:
+        enabled: true
 
 
 logging:
@@ -24,6 +29,8 @@ logging:
           autoconfigure:
             graphql: DEBUG
 
+        data:
+          elasticsearch: DEBUG
 
 mybatis-plus:
   configuration:

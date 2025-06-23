@@ -5,9 +5,11 @@
 import json
 from typing import Optional, Any, List
 
+import pika
 import pymysql
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
+from pika.adapters.blocking_connection import BlockingChannel
 
 from doraSpider.items import PostItem, UserItem
 from loguru import logger
@@ -275,3 +277,81 @@ class MySQLPipeline:
         except Exception as e:
             self.session.rollback()
             logger.error(f"Post upsert 失败: {e}")
+
+
+class RabbitMQPipeline:
+    """
+    代替上面两个 MySQL 管道
+    将数据直接发给消息队列，消费者先进行情感预测，然后将数据存到 mysql 和 es
+    """
+    def __init__(self, rabbitmq_url, exchange, queue, routing_key):
+        self.rabbitmq_url = rabbitmq_url
+        self.exchange = exchange
+        self.queue = queue
+        self.routing_key = routing_key
+        self.connection: Optional[pika.BlockingConnection] = None
+        self.channel: Optional[BlockingChannel] = None
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        settings = crawler.settings
+        return cls(
+            rabbitmq_url=settings.get('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672/'),
+            exchange='posts_exchange',
+            queue='sentiment_tasks',
+            routing_key='post.new'
+        )
+
+    def open_spider(self, spider):
+        """
+        连接 rabbitmq，声明交换机和队列
+        :param spider:
+        :return:
+        """
+        params = pika.URLParameters(self.rabbitmq_url)
+        # 建立连接
+        self.connection = pika.BlockingConnection(params)
+        # 建立通道
+        self.channel = self.connection.channel()
+
+        # 声明交换机和队列
+        self.channel.exchange_declare(
+            exchange=self.exchange,
+            exchange_type="direct",
+            durable=True
+        )
+        self.channel.queue_declare(queue=self.queue, durable=True)
+        self.channel.queue_bind(
+            exchange=self.exchange,
+            queue=self.queue,
+            routing_key=self.routing_key
+        )
+
+    def process_item(self, item, spider):
+        """
+        将 item 发到消息队列
+        :param item:
+        :param spider:
+        :return:
+        """
+        adapter = ItemAdapter(item)
+        data = adapter.asdict()
+
+        item_type = data.get("item_type")
+
+        # 只有帖子需要进行情感分析，用户直接存 MySQL
+        if item_type == "post":
+            message = json.dumps(dict(item), ensure_ascii=False)
+            self.channel.basic_publish(
+                exchange=self.exchange,
+                routing_key=self.routing_key,
+                body=message.encode("utf-8"),
+                properties=pika.BasicProperties(delivery_mode=2)
+            )
+            logger.info(f"[X] send message to queue: {message}")
+            return item
+        else:
+            return item
+
+    def close_spider(self, spider):
+        self.connection.close()

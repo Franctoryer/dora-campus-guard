@@ -37,6 +37,8 @@ class Post(Base):
     ad_level = Column(Integer, default=0, comment="广告等级")
     settled = Column(Boolean, default=False, comment="是否已解决")
     published_at = Column(DateTime, comment="发布时间")
+    sentiment_label = Column(Integer, comment="情感类型")
+    sentiment_confidence = Column(Float, comment="情感预测置信度")
     is_ever_top = Column(Boolean, default=False, comment="是否曾经置顶")
     ever_top_end_time = Column(DateTime, nullable=True, comment="曾经置顶结束时间")
     crawled_at = Column(DateTime, default=datetime.utcnow, comment="抓取时间")
