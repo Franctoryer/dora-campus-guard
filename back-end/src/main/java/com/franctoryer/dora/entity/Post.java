@@ -4,49 +4,143 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
-@TableName("posts")
+/**
+ * 帖子数据表
+ */
+@TableName(value = "posts", schema = "public")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
 public class Post {
 
-    @TableId(type = IdType.INPUT)
-    private Long id; // 帖子 ID
+    /**
+     * 帖子 ID
+     */
+    @TableId(type = IdType.AUTO)
+    private Long id;
 
-    private String content; // 帖子正文
+    /**
+     * 帖子正文
+     */
+    private String content;
 
-    private Long uid; // 发帖者 ID
+    /**
+     * 发帖者 ID
+     */
+    private Long uid;
 
-    private Boolean isAnonymous; // 是否匿名
+    /**
+     * 是否匿名
+     */
+    private Boolean isAnonymous;
 
-    private Boolean isDistinguished; // 是否精选
+    /**
+     * 是否精选
+     */
+    private Boolean isDistinguished;
 
-    private String pictureUrls; // 图片 URL（每个用逗号隔开）
+    /**
+     * 图片 URL（逗号分隔）
+     */
+    private String pictureUrls;
 
-    private Long topicId; // 话题 ID
+    /**
+     * 是否有风险
+     */
+    private Boolean risky;
 
-    private Integer commentSum; // 评论数
+    /**
+     * 话题 ID
+     */
+    private Long topicId;
 
-    private Integer likeSum; // 点赞数
+    /**
+     * 评论数
+     */
+    private Integer commentSum;
 
-    private Integer hot; // 热度
+    /**
+     * 点赞数
+     */
+    private Integer likeSum;
 
-    private Integer tipSum; // 举报数
+    /**
+     * 热度
+     */
+    private Integer hot;
 
-    private Integer forwardSum; // 转发数
+    /**
+     * 举报数
+     */
+    private Integer tipSum;
 
-    private Date publishedAt; // 发布时间
+    /**
+     * 转发数
+     */
+    private Integer forwardSum;
 
-    private Boolean isEverTop; // 是否曾经置顶
+    /**
+     * 蹲数
+     */
+    private Integer dunNum;
 
-    private Date everTopEndTime; // 曾经置顶的结束时间
+    /**
+     * 学校 ID
+     */
+    private Long schoolId;
 
-    private Date updateTime; // 上次更新时间
+    /**
+     * 是否收费
+     */
+    private Boolean isFee;
+
+    /**
+     * 来源
+     */
+    private Integer origin;
+
+    /**
+     * 广告等级
+     */
+    private Integer adLevel;
+
+    /**
+     * 是否已解决
+     */
+    private Boolean settled;
+
+    /**
+     * 发布时间
+     */
+    private LocalDateTime publishedAt;
+
+    /**
+     * 是否曾经置顶
+     */
+    private Boolean isEverTop;
+
+    /**
+     * 曾经置顶结束时间
+     */
+    private LocalDateTime everTopEndTime;
+
+    /**
+     * 抓取时间
+     */
+    private LocalDateTime crawledAt;
+
+    /**
+     * 帖子指纹（SHA-256）
+     */
+    private String fingerprint;
+
+    /**
+     * item 类型（post / user）
+     */
+    private String itemType;
 }
