@@ -2,8 +2,10 @@ package com.franctoryer.dora.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 
+import java.io.Serializable;
+
 @TableName("spider_records")
-public class SpiderRecord {
+public class SpiderRecord implements Serializable {
     // 抓取 ID
 
     // 爬虫名称

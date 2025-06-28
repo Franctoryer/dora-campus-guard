@@ -7,6 +7,7 @@
 from datetime import datetime
 import json
 from typing import Dict, Any
+import xmlrpc.client
 
 import pika
 import requests
@@ -65,9 +66,13 @@ class SentimentConsumer:
             content = post.get("content")
             emotion_label, emotion_confidence = self.predict_sentiment(content)
 
-            # 给 post 增加两个字段
+            # 给 post 增加两个情感类型字段
             post["sentiment_label"] = emotion_label
             post["sentiment_confidence"] = emotion_confidence
+
+            # 异常预警
+            abnormal_index = self.get_abnormal_index(post["content"], emotion_label, post["tip_sum"])
+            post["abnormal_index"] = abnormal_index
 
             # 存到 MySQL
             self.mysql_upsert_post(post)
@@ -90,18 +95,43 @@ class SentimentConsumer:
         :param text:
         :return:
         """
-        sentiment_host = self.settings.get("SENTIMENT_HOST")
-        sentiment_url = self.settings.get("SENTIMENT_URL")
-
-        json_data = {
-            "text": text
-        }
-        resp = requests.post(f"{sentiment_host}{sentiment_url}", json=json_data)
-        resp_json = resp.json()
-        emotion_label = resp_json["label_id"]
-        emotion_confidence = resp_json["confidence"]
+        # 情感分析服务 RPC 接口
+        client = xmlrpc.client.ServerProxy(self.settings.get("SENTIMENT_RPC_HOST"))
+        result: Dict[str, Any] = client.predict_emotion(text)  # 预测情感
+        emotion_label = result["label_id"]
+        emotion_confidence = result["confidence"]
 
         return emotion_label, emotion_confidence
+
+    def get_abnormal_index(self, text: str, sentiment_label: int, tip_sum: int) -> int:
+        """
+        获取一个帖子的异常指数
+        :param text: 文本
+        :param sentiment_label: 情感类型
+        :param tip_sum: 举报数
+        :return:  1 -> 2 -> 3，异常指数逐渐升高
+        """
+        # 只有负面情感的帖子才会触发预警
+        if sentiment_label != 0 and sentiment_label != 1 and sentiment_label != 2:
+            return 0
+        # 最后的异常指数
+        result = 0
+        # 异常预警 RPC 接口
+        client = xmlrpc.client.ServerProxy(self.settings.get("DETECTION_RPC_HOST"))
+        is_sensitive: bool = client.is_sensitive(text)
+
+        # 如果含有敏感词 + 1
+        if is_sensitive:
+            result = result + 1
+
+        if tip_sum > 0:
+            result = result + 1
+
+        if tip_sum >= 2:
+            result = result + 1
+
+        return result
+
 
     def mysql_upsert_post(self, item: Any):
         table = Post.__table__
@@ -121,6 +151,7 @@ class SentimentConsumer:
             "ever_top_end_time": stmt.inserted.ever_top_end_time,
             "sentiment_label": stmt.inserted.sentiment_label,
             "sentiment_confidence": stmt.inserted.sentiment_confidence,
+            "abnormal_index": stmt.inserted.abnormal_index
         }
 
         on_duplicate_key_stmt = stmt.on_duplicate_key_update(**update_dict)
@@ -156,6 +187,8 @@ class SentimentConsumer:
                     "settled": post["settled"],
                     "published_at":  self.normalize_datetime_str(post["published_at"]),
                     "sentiment_label": post["sentiment_label"],
+                    "sentiment_confidence": post["sentiment_confidence"],
+                    "abnormal_index": post["abnormal_index"],
                     "is_ever_top": post["is_ever_top"],
                     "ever_top_end_time": self.normalize_datetime_str(post["ever_top_end_time"]),
                 },
@@ -178,6 +211,124 @@ class SentimentConsumer:
         except Exception:
             return date_str
 
+    def update_all_sentiments_from_es(self, batch_size=1000):
+        """
+        遍历 ES 索引中的所有文档，预测内容的情感，更新 sentiment_label 和 sentiment_confidence 字段
+        :param batch_size: 每次查询的批量大小，默认 1000
+        """
+        query = {
+            "query": {"match_all": {}},
+            "_source": ["content"],  # 只拉取 content 字段减少传输
+            "size": batch_size,
+        }
+
+        scroll_id = None
+
+        try:
+            # 初始化scroll查询
+            resp = self.es.search(index=self.es_post_index, body=query, scroll='2m')
+            scroll_id = resp['_scroll_id']
+            total = resp['hits']['total']['value']
+            logger.info(f"开始更新 ES 中 {total} 条数据的情感")
+
+            processed = 0
+            while True:
+                hits = resp['hits']['hits']
+                if not hits:
+                    break
+
+                for hit in hits:
+                    doc_id = hit['_id']
+                    source = hit['_source']
+                    content = source.get('content', '')
+                    if not content:
+                        continue
+
+                    # 预测情感
+                    label, confidence = self.predict_sentiment(content)
+
+                    # 更新 ES 文档部分字段
+                    self.es.update(
+                        index=self.es_post_index,
+                        id=doc_id,
+                        body={
+                            "doc": {
+                                "sentiment_label": label,
+                                "sentiment_confidence": confidence,
+                            }
+                        }
+                    )
+                    processed += 1
+
+                logger.info(f"已处理 {processed}/{total} 条")
+
+                # 继续scroll下一批
+                resp = self.es.scroll(scroll_id=scroll_id, scroll='2m')
+
+                # scroll结束条件
+                if not resp['hits']['hits']:
+                    break
+
+            logger.success(f"完成情感更新，共处理 {processed} 条数据")
+        except Exception as e:
+            logger.error(f"更新 ES 情感字段失败: {e}")
+        finally:
+            if scroll_id:
+                try:
+                    self.es.clear_scroll(scroll_id=scroll_id)
+                except Exception:
+                    pass
+
+    def update_all_sentiment_from_mysql(self, batch_size=1000):
+        """
+        遍历 MySQL 中 sentiment_label 为空的帖子，调用情感模型进行预测，并更新 sentiment_label 和 sentiment_confidence 字段。
+        :param batch_size: 每批处理的数量
+        """
+        try:
+            offset = 0
+            processed = 0
+
+            while True:
+                # 查询 sentiment_label 为空的帖子
+                posts = (
+                    self.session.query(Post)
+                    .filter(Post.sentiment_label == None)
+                    .order_by(Post.id)
+                    .offset(offset)
+                    .limit(batch_size)
+                    .all()
+                )
+
+                if not posts:
+                    break
+
+                for post in posts:
+                    if not post.content:
+                        continue
+
+                    # 调用情感分析模型
+                    label, confidence = self.predict_sentiment(post.content)
+
+                    # 更新字段
+                    post.sentiment_label = label
+                    post.sentiment_confidence = confidence
+
+                    processed += 1
+
+                self.session.commit()
+                logger.info(f"已处理 {processed} 条")
+
+                if len(posts) < batch_size:
+                    break  # 数据处理完了
+
+                offset += batch_size
+
+            logger.success(f"MySQL 情感字段更新完成，共处理 {processed} 条")
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"更新 MySQL 情感字段失败: {e}")
+
+
 def main() -> None:
     consumer = SentimentConsumer()
     conn = pika.BlockingConnection(pika.URLParameters(consumer.rabbitmq_url))
@@ -192,3 +343,5 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+    # consumer = SentimentConsumer()
+    # consumer.update_all_sentiment_from_mysql()

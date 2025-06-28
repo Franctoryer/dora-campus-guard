@@ -26,11 +26,15 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation:3.5.0'
 	// mybatis-plus
 	implementation 'com.baomidou:mybatis-plus-spring-boot3-starter:3.5.9'
+	implementation 'com.baomidou:mybatis-plus-jsqlparser:3.5.9'
 	// ElasticSearch
 	implementation 'org.springframework.data:spring-data-elasticsearch:5.5.0'
 	implementation 'co.elastic.clients:elasticsearch-java:8.15.0'
 	// mysql
 	implementation 'com.mysql:mysql-connector-j:8.3.0'
+	// webflux
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
 
 	compileOnly 'org.projectlombok:lombok:1.18.24'
 	annotationProcessor 'org.projectlombok:lombok:1.18.24'

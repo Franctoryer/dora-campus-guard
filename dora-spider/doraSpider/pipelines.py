@@ -212,7 +212,8 @@ class MySQLPipeline:
 
         item_type = data.get("item_type")
         if item_type == "post":
-            self.upsert_post(data)
+            # self.upsert_post(data)
+            return item
         elif item_type == "user":
             self.upsert_user(data)
         else:

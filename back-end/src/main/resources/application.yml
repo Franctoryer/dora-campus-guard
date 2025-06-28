@@ -40,3 +40,7 @@ mybatis-plus:
       id-type: auto
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+deepseek:
+  api:
+    key: sk-b73105e1311b46b5b104b5c49d0aa6b6
