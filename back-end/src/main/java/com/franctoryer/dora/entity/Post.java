@@ -7,16 +7,17 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
  * 帖子数据表
  */
-@TableName(value = "posts", schema = "public")
+@TableName(value = "posts", schema = "dora")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Post {
+public class Post implements Serializable {
 
     /**
      * 帖子 ID
@@ -128,6 +129,21 @@ public class Post {
      * 曾经置顶结束时间
      */
     private LocalDateTime everTopEndTime;
+
+    /**
+     * 情感标签
+     */
+    private Integer sentimentLabel;
+
+    /**
+     * 情感预测的置信度
+     */
+    private Float sentimentConfidence;
+
+    /**
+     * 异常指数（0 表示正常、1 表示低级、2 表示中级、3 表示高级）
+     */
+    private Integer abnormalIndex;
 
     /**
      * 抓取时间

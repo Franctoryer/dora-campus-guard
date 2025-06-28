@@ -7,10 +7,6 @@
       mode="horizontal"
       :style="{ lineHeight: '64px' }"
     >
-      <a-menu-item key="home" @click="router.push('/')">
-        <template #icon><home-outlined /></template>
-        首页
-      </a-menu-item>
       <a-menu-item key="ai-search" @click="router.push('/ai-search')">
         <template #icon><search-outlined /></template>
         AI 智搜
@@ -41,7 +37,6 @@
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  HomeOutlined,
   SearchOutlined,
   HeartOutlined,
   WarningOutlined,

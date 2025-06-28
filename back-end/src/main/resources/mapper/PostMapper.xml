@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.franctoryer.dora.mapper.PostMapper">
+
+    <resultMap id="DetectionPostListMap" type="com.franctoryer.dora.vo.detection.DetectionPostListVo">
+        <id property="id" column="id"/>
+        <result property="content" column="content"/>
+        <result property="isAnonymous" column="is_anonymous"/>
+        <result property="isDistinguished" column="is_distinguished"/>
+        <result property="pictureUrls" column="picture_urls"/>
+        <result property="risky" column="risky"/>
+        <result property="topicId" column="topic_id"/>
+        <result property="commentSum" column="comment_sum"/>
+        <result property="likeSum" column="like_sum"/>
+        <result property="hot" column="hot"/>
+        <result property="tipSum" column="tip_sum"/>
+        <result property="forwardSum" column="forward_sum"/>
+        <result property="dunNum" column="dun_num"/>
+        <result property="isFee" column="is_fee"/>
+        <result property="origin" column="origin"/>
+        <result property="adLevel" column="ad_level"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="isEverTop" column="is_ever_top"/>
+        <result property="everTopEndTime" column="ever_top_end_time"/>
+        <result property="sentimentLabel" column="sentiment_label"/>
+        <result property="sentimentConfidence" column="sentiment_confidence"/>
+        <result property="abnormalIndex" column="abnormal_index"/>
+        <result property="uid" column="uid"/>
+        <result property="avatarUrl" column="avatar_url"/>
+        <result property="gender" column="gender"/>
+        <result property="level" column="level"/>
+        <result property="nickname" column="nickname"/>
+        <result property="isAdmin" column="is_admin"/>
+        <result property="schoolId" column="school_id"/>
+        <result property="doraCoin" column="dora_coin"/>
+        <result property="hidePermission" column="hide_permission"/>
+    </resultMap>
+    <select id="selectDetectionPostPage" resultMap="DetectionPostListMap">
+        SELECT
+            p.id,
+            p.content,
+            p.is_anonymous,
+            p.is_distinguished,
+            p.picture_urls,
+            p.risky,
+            p.topic_id,
+            p.comment_sum,
+            p.like_sum,
+            p.hot,
+            p.tip_sum,
+            p.forward_sum,
+            p.dun_num,
+            p.is_fee,
+            p.origin,
+            p.ad_level,
+            p.published_at,
+            p.is_ever_top,
+            p.ever_top_end_time,
+            p.sentiment_label,
+            p.sentiment_confidence,
+            p.abnormal_index,
+            u.uid,
+            u.avatar_url,
+            u.gender,
+            u.level,
+            u.nickname,
+            u.is_admin,
+            u.school_id,
+            u.dora_coin,
+            u.hide_permission
+        FROM posts p
+                 LEFT JOIN users u ON p.uid = u.uid
+        <where>
+            <if test="abnormalIndex != null">
+                AND p.abnormal_index = #{abnormalIndex}
+            </if>
+            <if test="abnormalIndex == null">
+                AND p.abnormal_index != 0
+            </if>
+        </where>
+    </select>
+
+</mapper>

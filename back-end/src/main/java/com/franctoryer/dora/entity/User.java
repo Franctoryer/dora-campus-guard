@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 /**
  * 用户数据表
  */
-@TableName(value = "users", schema = "public")
+@TableName(value = "users", schema = "dora")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

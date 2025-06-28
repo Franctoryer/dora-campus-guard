@@ -23,9 +23,9 @@ ADDONS = {}
 ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-CONCURRENT_REQUESTS = 32
+CONCURRENT_REQUESTS = 60
 
-DOWNLOAD_DELAY = 0.4
+# DOWNLOAD_DELAY = 0.4
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
@@ -62,7 +62,6 @@ DOWNLOADER_MIDDLEWARES = {
     # 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 400,
 }
 
-
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
 #EXTENSIONS = {
@@ -73,7 +72,7 @@ DOWNLOADER_MIDDLEWARES = {
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     "doraSpider.pipelines.LoggerPipeline": 200,
-    # "doraSpider.pipelines.MySQLPipeline": 500,
+    "doraSpider.pipelines.MySQLPipeline": 500,
     "doraSpider.pipelines.RabbitMQPipeline": 300
 }
 
@@ -102,8 +101,7 @@ ITEM_PIPELINES = {
 FEED_EXPORT_ENCODING = "utf-8"
 LOG_LEVEL = 'INFO'
 
-# 数据库配置
-MYSQL_DB_URL = 'mysql+pymysql://root:admin123@localhost:3306/dora?charset=utf8mb4'
+
 
 # 重试配置
 RETRY_ENABLED = True
@@ -131,12 +129,23 @@ PROXY_LIST = [
     f"http://{PROXY_USERNAME}:{PROXY_PASSWORD}@182.106.136.217:40879",
 ]
 
+# 数据库配置
+MYSQL_DB_URL = 'mysql+pymysql://root:admin123@localhost:3306/dora?charset=utf8mb4'
+
 # RabbitMQ 配置
 RABBITMQ_URL = "amqp://guest:guest@localhost:5672/"
 
-# 情感分析服务配置
+# 情感分析服务 REST 接口
 SENTIMENT_HOST = "http://127.0.0.1:8000"
 SENTIMENT_URL = "/predict-emotion"
+
+# 情感分析服务 RPC 接口
+SENTIMENT_RPC_HOST = "http://127.0.0.1:8002"
+SENTIMENT_RPC_FUNC = "predict_emotion"
+
+# 异常预警 RPC 接口
+DETECTION_RPC_HOST = "http://127.0.0.1:8008"
+DETECTION_RPC_FUNC = "is_sensitive"
 
 # ES 配置
 ES_URL = "http://localhost:9200"

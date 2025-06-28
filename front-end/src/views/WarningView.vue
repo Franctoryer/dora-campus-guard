@@ -1,41 +1,38 @@
 <template>
   <div class="warning">
-    <h1>异常预警</h1>
-
     <a-row :gutter="16">
       <a-col :span="24">
         <a-card title="预警概览" :bordered="false">
           <a-row :gutter="16">
             <a-col :span="6">
-              <a-statistic title="今日预警" :value="12" :value-style="{ color: '#cf1322' }">
+              <a-statistic title="总预警数" :value="total" :value-style="{ color: '#cf1322' }">
                 <template #prefix>
-                  <warning-outlined />
+                  <alert-outlined />
                 </template>
               </a-statistic>
             </a-col>
             <a-col :span="6">
-              <a-statistic title="待处理" :value="5" :value-style="{ color: '#faad14' }">
+              <a-statistic title="严重预警" :value="highCount" :value-style="{ color: '#fa541c' }">
                 <template #prefix>
-                  <clock-circle-outlined />
-                </template>
-              </a-statistic>
-            </a-col>
-            <a-col :span="6">
-              <a-statistic title="已处理" :value="7" :value-style="{ color: '#3f8600' }">
-                <template #prefix>
-                  <check-circle-outlined />
+                  <fire-outlined />
                 </template>
               </a-statistic>
             </a-col>
             <a-col :span="6">
               <a-statistic
-                title="平均响应时间"
-                value="2.5"
-                suffix="小时"
-                :value-style="{ color: '#1890ff' }"
+                title="中级预警"
+                :value="mediumCount"
+                :value-style="{ color: '#faad14' }"
               >
                 <template #prefix>
-                  <field-time-outlined />
+                  <exclamation-circle-outlined />
+                </template>
+              </a-statistic>
+            </a-col>
+            <a-col :span="6">
+              <a-statistic title="低级预警" :value="lowCount" :value-style="{ color: '#3f8600' }">
+                <template #prefix>
+                  <info-circle-outlined />
                 </template>
               </a-statistic>
             </a-col>
@@ -46,134 +43,147 @@
 
     <a-row :gutter="16" style="margin-top: 16px">
       <a-col :span="24">
-        <a-card title="预警列表" :bordered="false">
-          <a-table :columns="columns" :data-source="data">
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'level'">
-                <a-tag :color="getLevelColor(record.level)">
-                  {{ record.level }}
+        <a-select v-model:value="level" @change="getAbnormalPosts">
+          <a-select-option :value="null">全部</a-select-option>
+          <a-select-option :value="1">低级预警</a-select-option>
+          <a-select-option :value="2">中级预警</a-select-option>
+          <a-select-option :value="3">高级预警</a-select-option>
+        </a-select>
+        <a-list
+          :data-source="abnormalPosts"
+          v-model:pagination="pagination"
+          item-layout="horizontal"
+        >
+          <template #renderItem="{ item }">
+            <a-list-item key="item.id" class="post-info">
+              <!-- 用户信息 -->
+              <a-list-item-meta class="user-info">
+                <template #title>
+                  {{ item?.nickname || '无昵称' }}
+                  <a-tag color="red" class="level-tag" v-if="item?.isAdmin"> 管理员 </a-tag>
+                  <a-tag color="blue" class="level-tag" v-else>{{
+                    `Lv.${item?.level || 0}`
+                  }}</a-tag>
+                </template>
+                <template #avatar>
+                  <a-avatar :src="item?.avatarUrl || ''" />
+                </template>
+                <template #description>
+                  <span class="time">{{ item.publishedAt }}</span>
+                </template>
+              </a-list-item-meta>
+              <!-- 正文 -->
+              <div
+                v-html="item.content"
+                class="post-content"
+                @click="goToPost(item.id)"
+                style="cursor: pointer"
+              ></div>
+              <!-- 额外信息 -->
+              <div class="post-extra">
+                <a-tag :color="SentimentUtil.getLabelColorFromLabelId(item.sentimentLabel)">{{
+                  SentimentUtil.getLabelNameFromLabelId(item.sentimentLabel)
+                }}</a-tag>
+
+                <!-- 预警标签 -->
+                <a-tag v-if="item.abnormalIndex > 0" :color="getAbnormalColor(item.abnormalIndex)">
+                  {{ getAbnormalLabel(item.abnormalIndex) }}
                 </a-tag>
-              </template>
-              <template v-if="column.key === 'status'">
-                <a-tag :color="getStatusColor(record.status)">
-                  {{ record.status }}
-                </a-tag>
-              </template>
-              <template v-if="column.key === 'action'">
-                <a-space>
-                  <a-button type="link" size="small">查看详情</a-button>
-                  <a-button type="link" size="small">处理</a-button>
-                </a-space>
-              </template>
-            </template>
-          </a-table>
-        </a-card>
+              </div>
+            </a-list-item>
+          </template>
+        </a-list>
       </a-col>
     </a-row>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
-  WarningOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  FieldTimeOutlined,
+  AlertOutlined,
+  FireOutlined,
+  ExclamationCircleOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons-vue'
+import service from '@/util/axios'
+import SentimentUtil from '@/util/sentimentUtil'
 
-interface TableItem {
-  key: string
-  title: string
-  level: string
-  source: string
-  time: string
-  status: string
+onMounted(() => {
+  getDetectionSummary()
+  getAbnormalPosts()
+})
+
+// ========== 预警总结 =============
+
+const lowCount = ref<number>(0)
+const mediumCount = ref<number>(0)
+const highCount = ref<number>(0)
+const total = computed(() => lowCount.value + mediumCount.value + highCount.value)
+
+const getDetectionSummary = async () => {
+  const res = await service.get('/detection/detection-summary')
+  lowCount.value = res.data.lowCount
+  mediumCount.value = res.data.mediumCount
+  highCount.value = res.data.highCount
 }
 
-const columns = [
-  {
-    title: '预警内容',
-    dataIndex: 'title',
-    key: 'title',
+// =========== 获取预警列表 =================
+const abnormalPosts = ref([])
+const pagination = reactive({
+  current: 1,
+  pageSize: 20,
+  total: 0,
+  showSizeChanger: true,
+  // showQuickJumper: true,
+  pageSizeOptions: ['10', '20', '30', '40'],
+  onChange: (page: number, pageSize: number) => {
+    pagination.current = page
+    pagination.pageSize = pageSize
+    getAbnormalPosts()
   },
-  {
-    title: '预警等级',
-    dataIndex: 'level',
-    key: 'level',
-  },
-  {
-    title: '来源',
-    dataIndex: 'source',
-    key: 'source',
-  },
-  {
-    title: '时间',
-    dataIndex: 'time',
-    key: 'time',
-  },
-  {
-    title: '状态',
-    dataIndex: 'status',
-    key: 'status',
-  },
-  {
-    title: '操作',
-    key: 'action',
-  },
-]
+})
+const level = ref(null)
+const getAbnormalPosts = async () => {
+  const res = await service.get('/detection/abnormal-post-list', {
+    params: {
+      pageNum: pagination.current,
+      pageSize: pagination.pageSize,
+      abnormalIndex: level.value,
+    },
+  })
+  abnormalPosts.value = res.data.records
+}
 
-const data = ref<TableItem[]>([
-  {
-    key: '1',
-    title: '校园论坛出现大量负面言论',
-    level: '高',
-    source: '校园论坛',
-    time: '2024-03-20 10:30',
-    status: '待处理',
-  },
-  {
-    key: '2',
-    title: '食堂投诉量突增',
-    level: '中',
-    source: '投诉系统',
-    time: '2024-03-20 09:15',
-    status: '处理中',
-  },
-  {
-    key: '3',
-    title: '图书馆占座问题引发争议',
-    level: '低',
-    source: '社交媒体',
-    time: '2024-03-20 08:45',
-    status: '已处理',
-  },
-])
-
-const getLevelColor = (level: string) => {
-  switch (level) {
-    case '高':
-      return 'red'
-    case '中':
-      return 'orange'
-    case '低':
-      return 'blue'
+const getAbnormalLabel = (index: number) => {
+  switch (index) {
+    case 3:
+      return '高级预警'
+    case 2:
+      return '中级预警'
+    case 1:
+      return '低级预警'
     default:
-      return 'default'
+      return ''
   }
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case '待处理':
+const getAbnormalColor = (index: number) => {
+  switch (index) {
+    case 3:
       return 'red'
-    case '处理中':
+    case 2:
       return 'orange'
-    case '已处理':
+    case 1:
       return 'green'
     default:
-      return 'default'
+      return ''
   }
+}
+
+// ============== 页面跳转 ================
+const goToPost = (id: number) => {
+  window.open(`https://a.ktllq.cn/${id}`, '_blank')
 }
 </script>
 
@@ -185,5 +195,57 @@ const getStatusColor = (status: string) => {
 h1 {
   font-size: 24px;
   margin-bottom: 24px;
+}
+
+.search-results {
+  max-width: 1200px;
+  margin: auto;
+  margin-top: 20px;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.post-content {
+  padding: 20px;
+  flex: 3;
+}
+
+.post-extra {
+  flex: 1;
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 14px;
+  justify-content: center;
+  align-items: center;
+}
+
+.post-extra .tag {
+  background: #f0f0f0;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: 500;
+}
+
+.post-info {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.post-meta-icons {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #666;
+  gap: 16px;
+}
+
+.meta-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 </style>

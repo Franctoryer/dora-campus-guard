@@ -1,5 +1,6 @@
 import hashlib
 import json
+import random
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, Any, Optional, List, AsyncIterator
 
@@ -105,7 +106,10 @@ class PostSpider(scrapy.Spider):
         last_id: int = self.get_last_id(response)
         logger.info(f"last_index: {last_id}")
 
-        for post_id in range(last_id, last_id - self.data_size, -1):
+        post_ids = list(range(last_id, last_id - self.data_size, -1))
+        random.shuffle(post_ids)
+
+        for post_id in post_ids:
             url = f"https://cdn.dolacc.com/index.php/api/wxPostv2/visitPostCdnPw?pId={post_id}&nocache=-1"
             # 发请求
 

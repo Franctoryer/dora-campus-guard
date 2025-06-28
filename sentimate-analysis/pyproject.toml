@@ -8,6 +8,8 @@ dependencies = [
     "accelerate==0.28.0",
     "datasets>=3.6.0",
     "fastapi>=0.115.13",
+    "grpcio>=1.73.0",
+    "grpcio-tools>=1.73.0",
     "scikit-learn>=1.7.0",
     "torch>=2.7.1",
     "transformers==4.38.2",

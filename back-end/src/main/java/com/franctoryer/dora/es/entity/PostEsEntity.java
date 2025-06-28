@@ -7,12 +7,14 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.io.Serializable;
+
 /**
  * Elasticsearch 帖子实体类
  */
 @Data
 @Document(indexName = "posts")
-public class PostEsEntity {
+public class PostEsEntity implements Serializable {
     /**
      * 帖子 ID
      */
@@ -115,4 +117,22 @@ public class PostEsEntity {
      */
     @Field(type = FieldType.Date, name = "ever_top_end_time")
     private String everTopEndTime;
+
+    /**
+     * 情感标签
+     */
+    @Field(type = FieldType.Integer, name = "sentiment_label")
+    private Integer sentimentLabel;
+
+    /**
+     * 情感预测置信度
+     */
+    @Field(type = FieldType.Float, name = "sentiment_confidence")
+    private Float sentimentConfidence;
+
+    /**
+     * 异常指数
+     */
+    @Field(type = FieldType.Integer, name = "abnormal_index")
+    private Integer abnormalIndex;
 }

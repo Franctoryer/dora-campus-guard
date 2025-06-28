@@ -51,6 +51,8 @@ def create_es_index(es_client):
                 "published_at": {"type": "date"},
                 "is_ever_top": {"type": "boolean"},
                 "ever_top_end_time": {"type": "date"},
+                "sentiment_label": {"type": "integer"},
+                "sentiment_confidence": {"type": "float"}
             }
         }
     }
@@ -72,6 +74,7 @@ def get_mysql_session():
 
 def post_to_es_doc(post):
     """Convert Post object to Elasticsearch document"""
+    print(post.sentiment_label)
     return {
         "_index": INDEX_NAME,
         "_id": str(post.id),
@@ -94,6 +97,8 @@ def post_to_es_doc(post):
             "published_at": post.published_at.isoformat() if post.published_at else None,
             "is_ever_top": post.is_ever_top,
             "ever_top_end_time": post.ever_top_end_time.isoformat() if post.ever_top_end_time else None,
+            "sentiment_label": post.sentiment_label,
+            "sentiment_confidence": post.sentiment_confidence
         }
     }
 

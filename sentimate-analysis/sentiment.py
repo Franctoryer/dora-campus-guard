@@ -5,7 +5,7 @@ from transformers import BertTokenizer, BertForSequenceClassification
 import torch
 
 # 加载模型和分词器
-MODEL_PATH = "./saved_model"
+MODEL_PATH = "/Users/zhulitao/Franctoryer/dora-campus-guard/sentimate-analysis/saved_model"
 tokenizer = BertTokenizer.from_pretrained(MODEL_PATH)
 model = BertForSequenceClassification.from_pretrained(MODEL_PATH)
 model.eval()

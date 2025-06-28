@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@types/axios": "^0.9.36",
     "ant-design-vue": "^4.2.6",
+    "axios": "^1.10.0",
     "echarts": "^5.6.0",
     "echarts-wordcloud": "^2.1.0",
     "pinia": "^3.0.1",
