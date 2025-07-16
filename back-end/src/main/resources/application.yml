@@ -43,4 +43,4 @@ mybatis-plus:
 
 deepseek:
   api:
-    key: sk-b73105e1311b46b5b104b5c49d0aa6b6
+    key: *******
